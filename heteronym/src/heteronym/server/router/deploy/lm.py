@@ -1,10 +1,17 @@
 import gradio as gr
 
 from heteronym.server.db.client import TorchModel, OffloadConfig
+from heteronym.config import DEBUG, get_device
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 import json
 import pandas as pd
+
+
+if DEBUG:
+    torch.cuda.reset_peak_memory_stats = lambda *args, **kwargs: None
+    torch.cuda.memory_allocated = lambda *args, **kwargs: 2
+    torch.cuda.max_memory_allocated = lambda *args, **kwargs: 2
 
 
 def create_config(config: OffloadConfig, model: TorchModel):
@@ -17,10 +24,10 @@ def create_config(config: OffloadConfig, model: TorchModel):
     offload_layers = json.loads(config.offload_layers)
     scan_results = model.scan_results
     offload_config = {}
-    # 处理offload_layers中的每个键
+    # 处理 offload_layers 中的每个键
     for key, layers_list in offload_layers.items():
         memory_info = scan_results[key]["memory"]
-        # 计算当前键下所有layers的内存总和
+        # 计算当前键下所有 layers 的内存总和
         total_bytes = 0
         valid_layers = []
 
@@ -40,24 +47,21 @@ def create_config(config: OffloadConfig, model: TorchModel):
 
     return {"quantization": quantization_config, "offload": offload_config}
 
+
 import gradio as gr
 import time
 import torch
 from transformers import TextIteratorStreamer
 from threading import Thread
-DEBUG = False
-if DEBUG:
-    torch.cuda.reset_peak_memory_stats = lambda *args, **kwargs: None
-    torch.cuda.memory_allocated = lambda *args, **kwargs: 2
-    torch.cuda.max_memory_allocated = lambda *args, **kwargs: 2
+
 
 def create_ui(
     model_info: TorchModel,
     offload_config: OffloadConfig = None,
     enable_offload: bool = False,
-    device: int = 0
+    device_id: int = 0
 ):
-    device = torch.device(f"cuda:{device}") if not DEBUG else torch.device("mps")
+    device = get_device(device_id)
     tokenizer = AutoTokenizer.from_pretrained(model_info.hf_name, cache_dir=model_info.path)
 
     model = AutoModelForCausalLM.from_pretrained(
@@ -71,14 +75,11 @@ def create_ui(
     if enable_offload:
         offload_conf = create_config(offload_config, model_info)
         from heteronym.offload.setup_config import setup_from_config
-        setup_from_config(model, json.dumps(offload_conf))
+        setup_from_config(model, json.dumps(offload_conf), device)
     else:
         model = model.to(device)
 
     model = model.eval()
-
-    torch.cuda.reset_peak_memory_stats(device)
-
     # 全局停止标志
     stop_generation = False
 
@@ -113,7 +114,7 @@ def create_ui(
         thread.start()
 
         output_text = ""
-        total_tokens = 0  # 跟踪总token数
+        total_tokens = 0  # 跟踪总 token 数
         start_time = time.time()
         
         # 显存数据历史记录
@@ -125,16 +126,20 @@ def create_ui(
                     break
                     
                 output_text += new_text
-                # 计算新文本对应的token数量
+                # 计算新文本对应的 token 数量
                 new_tokens = len(tokenizer.encode(new_text, add_special_tokens=False))
                 total_tokens += new_tokens
 
                 elapsed = time.time() - start_time
                 tps = total_tokens / elapsed if elapsed > 0 else 0
 
-                # 显存监控
-                current_mem = torch.cuda.memory_allocated(device) / 1024**2
-                peak_mem = torch.cuda.max_memory_allocated(device) / 1024**2
+                # 显存监控 (DEBUG 模式下使用占位值)
+                if not DEBUG:
+                    current_mem = torch.cuda.memory_allocated(device) / 1024**2
+                    peak_mem = torch.cuda.max_memory_allocated(device) / 1024**2
+                else:
+                    current_mem = 0
+                    peak_mem = 0
                 
                 # 记录显存数据
                 memory_data.append({
@@ -144,19 +149,19 @@ def create_ui(
                     "tokens_per_second": tps
                 })
                 
-                # 创建DataFrame用于图表显示
+                # 创建 DataFrame 用于图表显示
                 df = pd.DataFrame(memory_data)
                 
                 status_text = (
                     f"⚡ {tps:.2f} token/s | "
-                    f"📦 当前显存: {current_mem:.2f} MB | "
-                    f"📈 峰值显存: {peak_mem:.2f} MB"
+                    f"📦 当前显存：{current_mem:.2f} MB | "
+                    f"📈 峰值显存：{peak_mem:.2f} MB"
                 )
 
                 yield output_text, df, status_text
         except Exception as e:
             error_df = pd.DataFrame(memory_data) if memory_data else pd.DataFrame(columns=["time", "current_memory", "peak_memory", "tokens_per_second"])
-            yield output_text, error_df, f"生成过程中出现错误: {str(e)}"
+            yield output_text, error_df, f"生成过程中出现错误：{str(e)}"
 
     def stop_infer():
         nonlocal stop_generation

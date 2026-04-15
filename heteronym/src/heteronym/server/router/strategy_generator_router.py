@@ -19,9 +19,10 @@ async def generate_strategy(
     quantization: bool,
     strategy_generator_name: str = Body(...),
     scan_result: str = Body(...),
+    params: dict = Body(default_factory=dict),
 ):
     logger.info(f"Generating strategy with method: {strategy_generator_name}")
-    logger.debug(f"Quantization flag: {quantization}")
+    logger.debug(f"Quantization flag: {quantization}, params: {params}")
     
     try:
         scan_result_obj = json.loads(scan_result)
@@ -38,7 +39,11 @@ async def generate_strategy(
     
     try:
         strategy = generate_strategy_worker(
-            onload_time, compute_time, leaf_modules, strategy_generator_name
+            onload_time, 
+            compute_time, 
+            leaf_modules, 
+            strategy_generator_name,
+            params
         )
         logger.info(f"Strategy generation completed, selected {len(strategy)} modules")
         return strategy

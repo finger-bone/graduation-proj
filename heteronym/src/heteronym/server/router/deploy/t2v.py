@@ -7,8 +7,8 @@ from threading import Thread
 from diffusers import DiffusionPipeline
 
 from heteronym.server.db.client import TorchModel, OffloadConfig
+from heteronym.config import DEBUG, get_device
 
-DEBUG = False
 if DEBUG:
     torch.cuda.reset_peak_memory_stats = lambda *args, **kwargs: None
     torch.cuda.memory_allocated = lambda *args, **kwargs: 2
@@ -62,14 +62,13 @@ def create_ui(
     enable_offload: bool = False,
     device: int = 0
 ):
-    device = torch.device(f"cuda:{device}") if not DEBUG else torch.device("mps")
+    device = get_device(device)
 
     # =========================
     # 加载视频模型
     # =========================
     pipe = DiffusionPipeline.from_pretrained(
-        model_info.hf_name,
-        torch_dtype=torch.float16 if not DEBUG else torch.float32,
+        model_info.hf_name.removeprefix("pipe:"),
         cache_dir=model_info.path,
     )
 
@@ -85,7 +84,8 @@ def create_ui(
 
     pipe.enable_attention_slicing()
 
-    torch.cuda.reset_peak_memory_stats(device)
+    if not DEBUG:
+        torch.cuda.reset_peak_memory_stats(device)
 
     stop_generation = False
 
@@ -120,13 +120,18 @@ def create_ui(
 
             elapsed = time.time() - start_time
 
-            current_mem = torch.cuda.memory_allocated(device) / 1024**2
-            peak_mem = torch.cuda.max_memory_allocated(device) / 1024**2
+            # 显存监控 (DEBUG 模式下使用占位值)
+            if not DEBUG:
+                current_mem = torch.cuda.memory_allocated(device) / 1024**2
+                peak_mem = torch.cuda.max_memory_allocated(device) / 1024**2
+            else:
+                current_mem = 0
+                peak_mem = 0
 
             status = (
                 f"⏳ 生成视频中... {elapsed:.2f}s | "
-                f"📦 当前显存: {current_mem:.2f} MB | "
-                f"📈 峰值显存: {peak_mem:.2f} MB"
+                f"📦 当前显存：{current_mem:.2f} MB | "
+                f"📈 峰值显存：{peak_mem:.2f} MB"
             )
 
             yield None, status
@@ -147,13 +152,17 @@ def create_ui(
 
         elapsed = time.time() - start_time
 
-        current_mem = torch.cuda.memory_allocated(device) / 1024**2
-        peak_mem = torch.cuda.max_memory_allocated(device) / 1024**2
+        if not DEBUG:
+            current_mem = torch.cuda.memory_allocated(device) / 1024**2
+            peak_mem = torch.cuda.max_memory_allocated(device) / 1024**2
+        else:
+            current_mem = 0
+            peak_mem = 0
 
         status = (
             f"✅ 完成 | ⏱ {elapsed:.2f}s | "
-            f"📦 当前显存: {current_mem:.2f} MB | "
-            f"📈 峰值显存: {peak_mem:.2f} MB"
+            f"📦 当前显存：{current_mem:.2f} MB | "
+            f"📈 峰值显存：{peak_mem:.2f} MB"
         )
 
         yield video_path, status

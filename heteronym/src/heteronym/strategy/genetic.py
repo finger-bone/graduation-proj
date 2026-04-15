@@ -7,19 +7,23 @@ def genetic_strategy_generator(
     onload_time: dict[str, int],
     compute_time: dict[str, int],
     leaf_modules: list[str],
+    params: dict = None,
 ) -> list[str]:
+    if params is None:
+        params = {}
+    
     logger.info("Starting genetic strategy generation")
-    logger.debug(f"Input parameters - leaf_modules count: {len(leaf_modules)}")
+    logger.debug(f"Input parameters - leaf_modules count: {len(leaf_modules)}, params: {params}")
     
     # 计算总计算时间作为约束
     total_compute_time = sum(compute_time.values())
     logger.debug(f"Total compute time: {total_compute_time}")
     
-    # 遗传算法参数
-    population_size = 50
-    generations = 100
-    crossover_rate = 0.8
-    mutation_rate = 0.1
+    # 遗传算法参数 - 从参数中读取或使用默认值
+    population_size = params.get("population_size", 50)
+    generations = params.get("generations", 100)
+    crossover_rate = params.get("crossover_rate", 0.8)
+    mutation_rate = params.get("mutation_rate", 0.1)
     
     logger.debug(f"Genetic algorithm parameters - population_size: {population_size}, "
                  f"generations: {generations}, crossover_rate: {crossover_rate}, "

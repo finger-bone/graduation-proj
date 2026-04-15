@@ -197,118 +197,203 @@
     });
 </script>
 
-<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg ring-1 ring-gray-300 dark:ring-gray-700 overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">扫描结果</h1>
+<div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-2xl shadow-xl ring-1 ring-slate-200 dark:ring-slate-700 overflow-hidden">
+    <!-- Header Section -->
+    <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500">
+        <h1 class="text-2xl font-bold text-white flex items-center">
+            <svg class="w-7 h-7 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+            扫描结果分析
+        </h1>
+        <p class="text-sm text-white/80 mt-1 ml-10">查看模型模块的调用顺序和性能数据</p>
     </div>
     
-    <div class="px-6 py-4">
-        <!-- 模块列表选择 -->
+    <div class="px-6 py-6">
+        <!-- Module List Selection -->
         {#if moduleLists.length > 0}
             <div class="mb-6">
-                <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">选择模块列表</span>
+                <span class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">选择模块列表</span>
                 <div class="flex flex-wrap gap-2">
                     {#each moduleLists as list}
                         <button 
-                            class="px-3 py-1 text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500 {list === selectedModuleList ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}"
+                            class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 {list === selectedModuleList ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white ring-2 ring-blue-500 ring-offset-2' : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600'}"
                             onclick={() => selectedModuleList = list}
                         >
+                            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                            </svg>
                             {list}
                         </button>
                     {/each}
                 </div>
             </div>
         {:else}
-            <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center mb-6">
-                <Icon icon="mdi:file-search" class="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500" />
-                <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white">暂无扫描结果</h3>
-                <p class="mt-2 text-gray-500 dark:text-gray-400">未找到任何模块列表</p>
+            <div class="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-8 text-center mb-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700/30 dark:to-slate-700/50">
+                <svg class="w-16 h-16 mx-auto text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <h3 class="mt-4 text-lg font-semibold text-slate-900 dark:text-white">暂无扫描结果</h3>
+                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">未找到任何模块列表，请先完成模型扫描</p>
             </div>
         {/if}
 
-        <!-- 标签页 -->
+        <!-- Tabs Navigation -->
         {#if selectedModuleList}
-            <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
-                <nav class="flex space-x-8">
+            <div class="border-b border-slate-200 dark:border-slate-700 mb-6">
+                <nav class="flex space-x-2" aria-label="Tabs">
                     <button
-                        class="py-2 px-1 text-sm font-medium border-b-2 {activeTab === 'order' ? 'border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
+                        class="py-3 px-5 text-sm font-semibold border-b-2 transition-all duration-200 {activeTab === 'order' ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-300'}"
                         onclick={() => activeTab = 'order'}
                     >
-                        调用顺序
+                        <div class="flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                            </svg>
+                            调用顺序
+                        </div>
                     </button>
                     <button
-                        class="py-2 px-1 text-sm font-medium border-b-2 {activeTab === 'compute' ? 'border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
+                        class="py-3 px-5 text-sm font-semibold border-b-2 transition-all duration-200 {activeTab === 'compute' ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-300'}"
                         onclick={() => activeTab = 'compute'}
                     >
-                        计算时间
+                        <div class="flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            计算时间
+                        </div>
                     </button>
                     <button
-                        class="py-2 px-1 text-sm font-medium border-b-2 {activeTab === 'load' ? 'border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}"
+                        class="py-3 px-5 text-sm font-semibold border-b-2 transition-all duration-200 {activeTab === 'load' ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-300'}"
                         onclick={() => activeTab = 'load'}
                     >
-                        加载时间
+                        <div class="flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                            </svg>
+                            加载时间
+                        </div>
                     </button>
                 </nav>
             </div>
 
-            <!-- 标签页内容 -->
+            <!-- Tab Content -->
             <div class="min-h-64">
-                <!-- 调用顺序 -->
+                <!-- Call Order Tab -->
                 {#if activeTab === 'order'}
                     {#if leafModuleOrder.length > 0}
-                        <div>
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">叶模块调用顺序</h3>
-                            <ol class="list-decimal list-inside bg-gray-50 dark:bg-gray-700 rounded p-4 max-h-60 overflow-auto">
+                        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-5 border border-slate-200 dark:border-slate-700">
+                            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+                                </svg>
+                                叶模块调用顺序
+                            </h3>
+                            <ol class="list-decimal list-inside bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700/50 dark:to-slate-700/30 rounded-lg p-4 max-h-96 overflow-auto border border-slate-200 dark:border-slate-600">
                                 {#each leafModuleOrder as module, i}
-                                    <li class="py-1 text-gray-800 dark:text-gray-200">
-                                        <span class="font-mono">{module}</span>
+                                    <li class="py-2 px-3 text-slate-800 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-600 rounded transition-colors duration-150">
+                                        <span class="font-mono text-sm break-all">{module}</span>
                                     </li>
                                 {/each}
                             </ol>
+                            <div class="mt-3 text-xs text-slate-500 dark:text-slate-400 flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                </svg>
+                                共 {leafModuleOrder.length} 个叶模块
+                            </div>
                         </div>
                     {:else}
-                        <div class="text-center py-8">
-                            <Icon icon="mdi:information-outline" class="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500" />
-                            <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white">无叶模块</h3>
-                            <p class="mt-2 text-gray-500 dark:text-gray-400">当前模块列表中未找到叶模块</p>
+                        <div class="text-center py-12 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
+                            <svg class="w-16 h-16 mx-auto text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <h3 class="mt-4 text-lg font-semibold text-slate-900 dark:text-white">无叶模块</h3>
+                            <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">当前模块列表中未找到叶模块</p>
                         </div>
                     {/if}
                 {/if}
 
-                <!-- 计算时间图表 -->
+                <!-- Compute Time Chart -->
                 {#if activeTab === 'compute'}
-                    <div>
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">计算时间</h3>
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-5 border border-slate-200 dark:border-slate-700">
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            计算时间分布
+                        </h3>
+                        <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700/50 dark:to-slate-700/30 rounded-lg p-6 border border-slate-200 dark:border-slate-600">
                             <canvas bind:this={chartCanvas}></canvas>
+                        </div>
+                        <div class="mt-4 grid grid-cols-3 gap-3">
+                            <div class="flex items-center p-2 bg-gray-100 dark:bg-slate-700 rounded-lg">
+                                <div class="w-4 h-4 rounded mr-2" style="background-color: rgba(156, 156, 156, 0.8)"></div>
+                                <span class="text-xs text-slate-700 dark:text-slate-300">0 到 (均值-标准差)</span>
+                            </div>
+                            <div class="flex items-center p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                                <div class="w-4 h-4 rounded mr-2" style="background-color: rgba(54, 162, 235, 0.8)"></div>
+                                <span class="text-xs text-slate-700 dark:text-slate-300">(均值-标准差) 到 均值</span>
+                            </div>
+                            <div class="flex items-center p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                                <div class="w-4 h-4 rounded mr-2" style="background-color: rgba(255, 99, 132, 0.8)"></div>
+                                <span class="text-xs text-slate-700 dark:text-slate-300">均值 到 (均值+标准差)</span>
+                            </div>
                         </div>
                     </div>
                 {/if}
 
-                <!-- 加载时间图表 -->
+                <!-- Load Time Chart -->
                 {#if activeTab === 'load'}
-                    <div>
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">加载时间</h3>
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-5 border border-slate-200 dark:border-slate-700">
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                            </svg>
+                            加载时间分布
+                        </h3>
+                        <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700/50 dark:to-slate-700/30 rounded-lg p-6 border border-slate-200 dark:border-slate-600">
                             <canvas bind:this={chartCanvas}></canvas>
+                        </div>
+                        <div class="mt-4 grid grid-cols-3 gap-3">
+                            <div class="flex items-center p-2 bg-gray-100 dark:bg-slate-700 rounded-lg">
+                                <div class="w-4 h-4 rounded mr-2" style="background-color: rgba(156, 156, 156, 0.8)"></div>
+                                <span class="text-xs text-slate-700 dark:text-slate-300">0 到 (均值-标准差)</span>
+                            </div>
+                            <div class="flex items-center p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                                <div class="w-4 h-4 rounded mr-2" style="background-color: rgba(54, 162, 235, 0.8)"></div>
+                                <span class="text-xs text-slate-700 dark:text-slate-300">(均值-标准差) 到 均值</span>
+                            </div>
+                            <div class="flex items-center p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                                <div class="w-4 h-4 rounded mr-2" style="background-color: rgba(255, 99, 132, 0.8)"></div>
+                                <span class="text-xs text-slate-700 dark:text-slate-300">均值 到 (均值+标准差)</span>
+                            </div>
                         </div>
                     </div>
                 {/if}
             </div>
         {/if}
         
+        <!-- Navigation Buttons -->
         <div class="mt-6 flex justify-between">
             <button 
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                class="inline-flex items-center px-5 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600"
                 onclick={onPrev}
             >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
                 上一步
             </button>
             <button 
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                class="inline-flex items-center px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                 onclick={onNext}
             >
                 下一步
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
             </button>
         </div>
     </div>

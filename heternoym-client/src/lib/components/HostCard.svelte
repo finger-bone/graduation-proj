@@ -10,12 +10,18 @@
 		onclick = ()=>{},
 		password,
 		onUpdatePassword = ()=>{},
+		showCheckbox = false,
+		checked = false,
+		onToggleCheckbox = undefined,
 	}: { 
 		remoteAddress: string, 
 		selected: boolean,
 		onclick: () => void,
 		password: string,
 		onUpdatePassword: () => void,
+		showCheckbox?: boolean,
+		checked?: boolean,
+		onToggleCheckbox?: (host: string) => void,
 	} = $props();
 	// State management using runes
 	let status = $state<'online' | 'offline' | 'checking'>('checking');

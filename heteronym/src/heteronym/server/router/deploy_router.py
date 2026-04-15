@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends
+from heteronym.config import is_debug_mode
 from sqlalchemy.orm import Session
 import torch
 import transformers
 from typing import Literal
 import socket
 import multiprocessing
+import requests
+import threading
 
 from heteronym.server.db.client import OffloadConfig, TorchModel, get_db
 
@@ -14,11 +17,15 @@ deploy_router = APIRouter()
 deployed_models = {}
 # (model id, port) -> process
 deployed_process = {}
+# Lock for thread safety
+deploy_lock = threading.Lock()
 
 @deploy_router.get("/device-count")
 async def get_device_count():
-    # return {"device_count": torch.cuda.device_count()}
-    return {"count": 2}
+    if is_debug_mode():
+        return {"count": 1}
+    else:
+        return {"count": torch.cuda.device_count()}
 
 
 def find_free_port(start=1145, end=65535):
@@ -68,13 +75,12 @@ async def create_deployment(
         daemon=True,
     )
 
-    global deployed_models
-    global deployed_process
-
-    if model_id not in deployed_models:
-        deployed_models[model_id] = []
-    deployed_models[model_id].append(port)
-    deployed_process[(model_id, port)] = process
+    # 使用锁保护共享数据结构
+    with deploy_lock:
+        if model_id not in deployed_models:
+            deployed_models[model_id] = []
+        deployed_models[model_id].append(port)
+        deployed_process[(model_id, port)] = process
 
     process.start()
 
@@ -83,28 +89,45 @@ async def create_deployment(
 
 @deploy_router.get("/ports/{model_id}")
 async def get_ports(model_id: str):
-    global deployed_models
+    # 使用锁保护读取操作
+    with deploy_lock:
+        ports = deployed_models.get(model_id, [])
     return {
-        "ports": deployed_models.get(model_id, [])
+        "ports": ports
     }
 
 
 @deploy_router.post("/stop")
 async def stop_deployment(model_id: str, port: int):
-    global deployed_process
+    # 使用锁保护共享数据结构
+    with deploy_lock:
+        process: multiprocessing.Process = deployed_process.get((model_id, port), None)
 
-    process: multiprocessing.Process = deployed_process.get((model_id, port), None)
+        if process and process.is_alive():
+            process.terminate()
+            process.join(timeout=5)
 
-    if process and process.is_alive():
-        process.terminate()
-        process.join(timeout=5)
+            # 清理记录
+            del deployed_process[(model_id, port)]
 
-        # 清理记录
-        del deployed_process[(model_id, port)]
-
-        if model_id in deployed_models:
-            deployed_models[model_id] = [
-                p for p in deployed_models[model_id] if p != port
-            ]
+            if model_id in deployed_models:
+                deployed_models[model_id] = [
+                    p for p in deployed_models[model_id] if p != port
+                ]
 
     return {"message": "Stopped"}
+
+
+@deploy_router.get("/check-port")
+async def check_port_status(model_id: str, port: int):
+    """
+    检查指定端口的服务是否已经就绪
+    通过尝试连接，如果 open 则就绪
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1)
+            s.connect(("0.0.0.0", port))
+            return {"status": "ready"}
+    except OSError:
+        return {"status": "not_ready"}

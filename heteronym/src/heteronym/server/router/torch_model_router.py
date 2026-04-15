@@ -96,7 +96,7 @@ async def search_torch_models(
     hf_name: Optional[str] = Query(None, description="HuggingFace 模型名"),
     name: Optional[str] = Query(None, description="模型名称"),
     scan_status: Optional[str] = Query(None, description="扫描状态"),
-    items_per_page: int = Query(20, ge=1, le=100),
+    items_per_page: int = Query(20, ge=1),
     page_idx: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ):

@@ -361,11 +361,12 @@ function addStrategyGeneratorApiMethods(apiService: ApiService & Partial<ModelAp
 		}
 	};
 	
-	apiService.generateStrategy = async function(strategyName: string, scanResult: string, quantization: boolean): Promise<any[]> {
+	apiService.generateStrategy = async function(strategyName: string, scanResult: string, quantization: boolean, params: Record<string, any> = {}): Promise<any[]> {
 		try {
 			const response = await client.post(`${baseUrl}/strategy-generator/generate`, {
 				scan_result: scanResult,
-				strategy_generator_name: strategyName
+				strategy_generator_name: strategyName,
+				params: params
 			}, {
 				params: {
 					quantization: quantization
@@ -391,6 +392,7 @@ export interface DeployApiService {
   getPorts(model_id: string): Promise<{ ports: number[] }>;
   deviceCount(): Promise<{ count: number }>;
   stop(model_id: string, port: number): Promise<{ message: string }>
+  checkPortStatus(model_id: string, port: number): Promise<{ status: "ready" | "not_ready" }>
 }
 
 function addDeployApiMethods(
@@ -466,6 +468,21 @@ function addDeployApiMethods(
       return response.data;
     } catch (error) {
       throw new Error(`Failed to stop deployment: ${error}`);
+    }
+  }
+
+  apiService.checkPortStatus = async function (model_id: string, port: number): Promise<{ status: "ready" | "not_ready" }> {
+    try {
+      const response = await client.get(`${baseUrl}/deploy/check-port`, {
+        params: {
+          model_id,
+          port,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      // 如果请求失败，说明服务还未就绪
+      return { status: "not_ready" };
     }
   }
 }

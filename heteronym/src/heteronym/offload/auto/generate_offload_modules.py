@@ -97,18 +97,15 @@ def generate_offload_modules(
             if not any(keyword in n for keyword in param_name_blacklist_keywords)
             if param.numel() >= numel_threshold
         ]
+        sub_names = [
+            sn for sn in sub_names if any(
+                sn.removesuffix(".weight") in wl for wl in param_name_whitelist_keywords
+            )
+        ]
         if len(sub_names) == 0:
             import warnings
             warnings.warn(f"Found no parameters valid for offloading in {name}")
             continue
-        with open("./debug.txt", "w") as f:
-            f.write(str(sub_names))
-            f.write(str(param_name_whitelist_keywords))
-        sub_names = [
-            sn for sn in sub_names if any(
-                sn in wl for wl in param_name_whitelist_keywords
-            )
-        ]
         module_dtype = example_modules[name].get_parameter(sub_names[0]).dtype
         bytes_per_numels = module_dtype.itemsize
         module_cnt = len(top_level_module_lists[name])

@@ -15,7 +15,7 @@ class OffloadConfigCreate(BaseModel):
     name: str
     offload_layers: str
     quantize: bool = False
-    quantize_dtype: str = "int8"
+    quantize_dtype: str = "float8"
     enable_scale: bool = False
     enable_bias: bool = False
 

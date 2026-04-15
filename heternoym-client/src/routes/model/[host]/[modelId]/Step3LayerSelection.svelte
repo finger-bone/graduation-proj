@@ -9,6 +9,7 @@
     import ConfigForm from '$lib/components/layer-selection/ConfigForm.svelte';
     import ConfigsTable from '$lib/components/layer-selection/ConfigsTable.svelte';
     import AutoSelectStrategy from '$lib/components/layer-selection/AutoSelectStrategy.svelte';
+    import StrategyParams from '$lib/components/layer-selection/StrategyParams.svelte';
 	import client from '$lib/client';
 	import { json } from '@sveltejs/kit';
 
@@ -33,6 +34,7 @@
     let strategies = $state<string[]>([]);
     let selectedStrategy = $state<string>('');
     let autoSelectLoading = $state<boolean>(false);
+    let strategyParams = $state<Record<string, any>>({});
     
     // Form state for creating/updating configs
     let newConfig = $state({
@@ -288,6 +290,11 @@
         selectedStrategy = strategy;
     }
     
+    // Handle strategy params change
+    function handleStrategyParamsChange(params: Record<string, any>) {
+        strategyParams = params;
+    }
+    
     // Placeholder function for getting available strategies
     async function getAvailableStrategies(): Promise<string[]> {
         // In a real implementation, this would fetch strategies from an API
@@ -313,6 +320,7 @@
             strategy,
             JSON.stringify(model?.scan_results[moduleListName]),
             newConfig.quantize,
+            strategyParams
         )
         // // Simple placeholder logic - in reality, this would depend on the strategy
         // switch (strategy) {
@@ -346,16 +354,28 @@
     }
 </script>
 
-<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg ring-1 ring-gray-300 dark:ring-gray-700 overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">层选择</h1>
+<div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-2xl shadow-xl ring-1 ring-slate-200 dark:ring-slate-700 overflow-hidden">
+    <!-- Header Section -->
+    <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500">
+        <h1 class="text-2xl font-bold text-white flex items-center">
+            <svg class="w-7 h-7 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+            </svg>
+            层选择与配置管理
+        </h1>
+        <p class="text-sm text-white/80 mt-1 ml-10">选择要卸载的模型层并创建配置</p>
     </div>
     
-    <div class="px-6 py-4">
+    <div class="px-6 py-6 space-y-6">
         <!-- Display error if exists -->
         {#if error}
-            <div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                {error}
+            <div class="p-4 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30 border-l-4 border-red-500 rounded-xl text-red-700 dark:text-red-300 shadow-sm">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="font-medium">{error}</span>
+                </div>
             </div>
         {/if}
         
@@ -363,29 +383,39 @@
         
         <TimeDistributionChart {memoryTime} {computeTime} />
         
-        <!-- Layer selection -->
-        <div class="mb-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-3">
+        <!-- Layer selection section -->
+        <div>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                </svg>
                 层选择
             </h2>
             
             {#if model?.scan_results}
-                <LayerTabs {model} {activeTab} onTabChange={handleTabChange} />
-                <AutoSelectStrategy 
-                    {strategies}
-                    {selectedStrategy}
-                    onStrategyChange={handleStrategyChange}
-                    onAutoSelect={handleAutoSelect}
-                    loading={autoSelectLoading}
-                />
-                <LayerList 
-                    {model} 
-                    {activeTab} 
-                    {selectedLayersDict} 
-                    onToggleLayer={toggleLayer}
-                    onSelectAll={selectAllLayers}
-                    onDeselectAll={deselectAllLayers}
-                />
+                <div class="space-y-4">
+                    <LayerTabs {model} {activeTab} onTabChange={handleTabChange} />
+                    <AutoSelectStrategy 
+                        {strategies}
+                        {selectedStrategy}
+                        onStrategyChange={handleStrategyChange}
+                        onAutoSelect={handleAutoSelect}
+                        loading={autoSelectLoading}
+                    />
+                    <StrategyParams 
+                        strategy={selectedStrategy}
+                        params={strategyParams}
+                        onParamsChange={handleStrategyParamsChange}
+                    />
+                    <LayerList 
+                        {model} 
+                        {activeTab} 
+                        {selectedLayersDict} 
+                        onToggleLayer={toggleLayer}
+                        onSelectAll={selectAllLayers}
+                        onDeselectAll={deselectAllLayers}
+                    />
+                </div>
             {:else}
                 <EmptyState 
                     title="暂无层信息" 
@@ -413,18 +443,25 @@
             onDeleteConfig={handleDeleteConfig}
         />
         
-        <div class="mt-6 flex justify-between">
+        <!-- Navigation Buttons -->
+        <div class="mt-6 flex justify-between pt-6 border-t border-slate-200 dark:border-slate-700">
             <button 
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                class="inline-flex items-center px-5 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600"
                 onclick={onPrev}
             >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
                 上一步
             </button>
             <button 
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                class="inline-flex items-center px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                 onclick={onNext}
             >
                 下一步
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
             </button>
         </div>
     </div>

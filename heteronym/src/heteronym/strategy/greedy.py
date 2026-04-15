@@ -5,9 +5,13 @@ def greedy_strategy_generator(
     onload_time: dict[str, int],
     compute_time: dict[str, int],
     leaf_modules: list[str],
+    params: dict = None,
 ) -> list[str]:
+    if params is None:
+        params = {}
+    
     logger.info("Starting greedy strategy generation")
-    logger.debug(f"Input parameters - leaf_modules count: {len(leaf_modules)}")
+    logger.debug(f"Input parameters - leaf_modules count: {len(leaf_modules)}, params: {params}")
     
     # 计算每个模块的比率
     ratios = {}
@@ -21,9 +25,9 @@ def greedy_strategy_generator(
     # 按比率降序排序
     sorted_modules = sorted(ratios.keys(), key=lambda x: ratios[x], reverse=True)
     
-    # 计算总的计算时间
-    total_compute_time = sum(compute_time.values())
-    logger.debug(f"Total compute time: {total_compute_time}")
+    # 计算总的计算时间 - 可以使用参数中的约束比例
+    total_compute_time = sum(compute_time.values()) * params.get("time_constraint_ratio", 1.0)
+    logger.debug(f"Total compute time (with ratio): {total_compute_time}")
     
     # 贪婪选择模块，直到达到计算时间上限
     strategy = []
