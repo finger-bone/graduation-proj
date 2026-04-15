@@ -169,7 +169,9 @@ class TensorRegistry:
             
         if current_chunk:
             self.chunks.append(current_chunk)
-        
+        if len(self.chunks) % 2 != 0:
+            last_param = self.chunks[-1].pop()
+            self.chunks.append([last_param])
         if self.quantization_config:
             self.scales = [1.] * len(self.chunks)
             self.biases = [0.] * len(self.chunks)

@@ -47,6 +47,14 @@ def worker_process(model, offload_config, enable_offload, device, port, model_ki
         from .deploy.lm import create_ui
         ui = create_ui(model, offload_config, enable_offload, device)
         ui.launch(server_name="0.0.0.0", server_port=port)
+    elif model_kind == "t2i":
+        from .deploy.t2i import create_ui
+        ui = create_ui(model, offload_config, enable_offload, device)
+        ui.launch(server_name="0.0.0.0", server_port=port)
+    elif model_kind == "t2v":
+        from .deploy.t2v import create_ui
+        ui = create_ui(model, offload_config, enable_offload, device)
+        ui.launch(server_name="0.0.0.0", server_port=port)
 
 
 @deploy_router.post("/create")

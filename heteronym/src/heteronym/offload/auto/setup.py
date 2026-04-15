@@ -77,7 +77,7 @@ def setup_offload(
     offload_parameter_names_in_order: List[str],
     onload_buffer_numels: int,
     offload_quantization_config: Optional[OffloadQuantizationConfig] = None,
-) -> Tuple[TensorRegistry, List[torch.utils.hooks.RemovableHandle], List[torch.utils.hooks.RemovableHandle]]:
+) -> Tuple[TensorRegistry, List[torch.utils.hooks.RemovableHandle], List[torch.utils.hooks.RemovableHandle], List[str]]:
     """
     Set up tensor offloading for a model.
     
@@ -112,12 +112,15 @@ def setup_offload(
     """
     if onload_device.type != "cuda":
         raise NotImplementedError("onload_device must be a CUDA device")
-    model.to(offload_device)
     registry_builder = OffloadTensorRegistryBuilder()
     import copy
     for name in copy.deepcopy(offload_parameter_names_in_order):
         try:
-            registry_builder.add_tensor(name, model.get_parameter(name))
+            param = model.get_parameter(name)
+            if param.numel() > onload_buffer_numels // 2:
+                offload_parameter_names_in_order.remove(name)
+                continue
+            registry_builder.add_tensor(name, param)
         except Exception:
             # remove the name
             offload_parameter_names_in_order.remove(name)
@@ -126,16 +129,10 @@ def setup_offload(
         registry_builder.device = offload_device
         for k in registry_builder.tensors:
             registry_builder.tensors[k] = registry_builder.tensors[k].to(offload_device)
-            
+    
+    if len(offload_parameter_names_in_order) == 0: return (None, [], [], [])
+    if registry_builder.numels() < 4 * onload_buffer_numels: return (None, [], [], [])
     registry = TensorRegistry(registry_builder, onload_buffer_numels, onload_device, offload_quantization_config)
-    
-    for name, param in model.named_parameters():
-        if name not in offload_parameter_names_in_order:
-            param.data = param.data.to(onload_device)
-    
-    for name, buffer in model.named_buffers():
-        if name not in offload_parameter_names_in_order:
-            buffer.data = buffer.data.to(onload_device)
     pre_hook_handles = []
     post_hook_handles = []
     
@@ -172,7 +169,7 @@ def setup_offload(
         init_hook_handle_container[0] = init_post_hook_handle
         
     torch.cuda.empty_cache()
-    return registry, pre_hook_handles, post_hook_handles
+    return registry, pre_hook_handles, post_hook_handles, offload_parameter_names_in_order
 
 def auto_setup_offload(
     model: torch.nn.Module,
@@ -227,7 +224,20 @@ def auto_setup_offload(
     if offload_device is None:
         offload_device = torch.device("cpu")
     configs = generate_offload_modules(model, blocks_to_keep, param_name_blacklist_keywords, numel_threshold, bytes_at_least, param_name_whitelist_keywords=param_name_whitelist_keywords)
-    return [
+    ret = [
         setup_offload(model, onload_device, offload_device, offload_param_names, numels, offload_quantization_config)
         for offload_param_names, numels in configs
     ]
+    offload_parameter_names_in_order = [
+        x
+        for e in ret
+        for x in e[-1]
+    ]
+    for name, param in model.named_parameters():
+        if name not in offload_parameter_names_in_order:
+            param.data = param.data.to(onload_device)
+    
+    for name, buffer in model.named_buffers():
+        if name not in offload_parameter_names_in_order:
+            buffer.data = buffer.data.to(onload_device)
+    return ret

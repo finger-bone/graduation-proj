@@ -32,8 +32,6 @@ def setup_from_config(
 ):
     config = convert_config(json.loads(config_content))
     from .auto import auto_setup_offload
-    with open("./dd.txt", "a") as f:
-        f.write("\n\n###\n" + str(config))
     for _, v in config.offload.root.items():
         auto_setup_offload(
             model,

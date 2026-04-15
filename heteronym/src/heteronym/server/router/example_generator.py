@@ -1,8 +1,25 @@
 import torch
 import inspect
-import re
 import math
-from typing import Any, Dict, List, Tuple, Optional, get_origin, get_args
+from typing import Any, Dict, List, Tuple, Optional
+
+def is_video_model(model: torch.nn.Module) -> bool:
+    """
+    通过类名和配置项的启发式方法判断是否为视频/3D模型。
+    """
+    class_name = model.__class__.__name__.lower()
+    
+    # 1. 检查类名中的常见视频模型关键字
+    if any(kw in class_name for kw in ["video", "3d", "spatiotemporal", "animatediff", "wan", "cogvideo"]):
+        return True
+        
+    # 2. 检查 config 中的视频专属属性
+    config = getattr(model, "config", None)
+    if config is not None:
+        if hasattr(config, "num_frames") or hasattr(config, "patch_size_t") or hasattr(config, "temporal_attention"):
+            return True
+            
+    return False
 
 
 def generate_example_inputs(
@@ -14,148 +31,177 @@ def generate_example_inputs(
     tokenizer: Optional[Any] = None,
     batch_size: int = 1,
 ) -> Tuple[List[Any], Dict[str, Any]]:
-    """
-    Config-aware + probe-and-retry example input generator.
 
-    返回和你的原版本一致： ([], kwargs)
-    """
     sig = inspect.signature(model.forward)
     arg_names = list(sig.parameters.keys())
     if arg_names and arg_names[0] == "self":
         arg_names = arg_names[1:]
+
     config = getattr(model, "config", None)
-    fwd_doc = model.forward.__doc__ or ""
+    
+    # 判断是否为视频模型
+    is_video = is_video_model(model)
 
-    # ---------- helpers ----------
-    def infer_text_seq_len() -> int:
-        if config is not None:
-            for k in (
-                "max_position_embeddings",
-                "n_positions",
-                "max_length",
-                "seq_length",
-            ):
-                v = getattr(config, k, None)
-                if isinstance(v, int):
-                    return min(v, 512)
-        if tokenizer is not None:
-            return getattr(
-                tokenizer, "model_max_length", getattr(tokenizer, "vocab_size", 77)
-            )
-        return 77
-
-    def infer_vocab_size() -> int:
-        if config is not None and hasattr(config, "vocab_size"):
-            return config.vocab_size
+    # -----------------------------
+    # SAFE inference helpers (通用)
+    # -----------------------------
+    def infer_vocab_size():
         if tokenizer is not None and hasattr(tokenizer, "vocab_size"):
             return tokenizer.vocab_size
-        return 30522
+        return 49408
 
-    def infer_latent_shape_from_config():
-        # returns (B, C, H, W)
-        if config is not None:
-            in_ch = (
-                getattr(config, "in_channels", None)
-                or getattr(config, "latent_channels", None)
-                or 4
-            )
-            sample = (
-                getattr(config, "sample_size", None)
-                or getattr(config, "image_size", None)
-                or 512
-            )
-            if isinstance(sample, (list, tuple)):
-                sample = sample[0]
-            vae_sf = getattr(config, "vae_scale_factor", 8)
-            h = int(sample // vae_sf)
-            return (batch_size, in_ch, h, h)
-        return (batch_size, 4, 64, 64)
+    # ==========================================
+    # 3D 视频生成模型专属通道 (Video/3D Channel)
+    # ==========================================
+    if is_video:
+        def infer_text_seq_len():
+            if tokenizer is not None and hasattr(tokenizer, "model_max_length"):
+                v = tokenizer.model_max_length
+                if isinstance(v, int) and 0 < v < 10000:
+                    return v
+            # 现代视频模型多使用 T5-XXL，常见 max_length 为 226 或 512
+            return getattr(config, "max_sequence_length", 226)
 
-    def make_encoder_hidden_states(device, seq_len=None, hidden_dim=None):
-        if hidden_dim is None:
+        def infer_hidden_dim():
             if config is not None:
-                hidden_dim = getattr(config, "cross_attention_dim", None) or getattr(
-                    config, "hidden_size", None
+                return (
+                    getattr(config, "text_embed_dim", None)
+                    or getattr(config, "caption_channels", None)     # 兼容 CogVideoX
+                    or getattr(config, "joint_attention_dim", None)  # 兼容部分 DiT 架构
+                    or getattr(config, "encoder_hid_dim", None)
+                    or getattr(config, "cross_attention_dim", None)
+                    or getattr(config, "hidden_size", None)
+                    or 4096  # T5-XXL 的默认特征维度，解决 768 vs 4096 报错
                 )
-            if hidden_dim is None:
-                hidden_dim = 768
-        if seq_len is None:
-            seq_len = infer_text_seq_len()
-        return torch.randn(
-            (batch_size, seq_len, hidden_dim), dtype=torch.float, device=device
-        )
+            return 4096
 
-    def make_latents(device, shape=None):
-        if shape is None:
-            shape = infer_latent_shape_from_config()
-        return torch.randn(shape, dtype=torch.float, device=device)
+        def infer_latent_shape():
+            if config is not None:
+                # 兼容不同命名习惯，视频模型（如 Wan/CogVideo）有时候会用 16 通道
+                ch = getattr(config, "in_channels", getattr(config, "out_channels", 16))
+                base = getattr(config, "sample_size", 64)
+                
+                # 解析 spatial 尺寸
+                if isinstance(base, (list, tuple)):
+                    base = base[-1]
+                
+                # 确保是 8 的倍数（针对 VAE）
+                base = int(math.ceil(base / 8) * 8) if base % 8 != 0 else base
+                num_frames = getattr(config, "num_frames", 8) 
+                
+                # 视频模型需要 5D 张量: (batch_size, channels, frames, height, width)
+                return (batch_size, ch, num_frames, base, base)
+            
+            # Config 缺失时的 Fallback 策略 (常见 DiT 视频模型)
+            return (batch_size, 16, 8, 64, 64)
+
+    # ==========================================
+    # 2D 图像生成模型专属通道 (Image Channel)
+    # ==========================================
+    else:
+        def infer_text_seq_len():
+            if tokenizer is not None:
+                if hasattr(tokenizer, "model_max_length"):
+                    v = tokenizer.model_max_length
+                    if isinstance(v, int) and 0 < v < 10000:
+                        return min(v, 77)
+            return 77
+
+        def infer_hidden_dim():
+            if config is not None:
+                return (
+                    getattr(config, "cross_attention_dim", None)
+                    or getattr(config, "text_embed_dim", None)
+                    or getattr(config, "hidden_size", None)
+                    or 768
+                )
+            return 768
+
+        def infer_latent_shape():
+            if config is not None:
+                ch = getattr(config, "in_channels", getattr(config, "out_channels", 4))
+                base = getattr(config, "sample_size", 64)
+                
+                if isinstance(base, (list, tuple)):
+                    base = base[-1]
+                    
+                base = int(math.ceil(base / 8) * 8) if base % 8 != 0 else base
+                return (batch_size, ch, base, base)
+                
+            return (batch_size, 4, 64, 64)
+
+    # -----------------------------
+    # Tensor builders
+    # -----------------------------
+    def make_latents(device):
+        return torch.randn(infer_latent_shape(), device=device, dtype=torch.float32)
+
+    def make_encoder_hidden_states(device):
+        seq_len = infer_text_seq_len()
+        hidden_dim = infer_hidden_dim()
+        return torch.randn(
+            (batch_size, seq_len, hidden_dim),
+            device=device,
+            dtype=torch.float32,
+        )
 
     def make_timestep(device):
-        return torch.tensor([0] * batch_size, dtype=torch.long, device=device)
+        return torch.tensor([1] * batch_size, device=device, dtype=torch.long)
 
-    # ---------- initial kwargs construction (heuristics) ----------
+    # -----------------------------
+    # build kwargs
+    # -----------------------------
     kwargs: Dict[str, Any] = {}
+
     for name in arg_names:
-        if name in (
-            "latents",
-            "sample",
-            "hidden_states",
-            "noisy_sample",
-            "noise_sample",
-        ):
+        # 1. 隐变量输入 (Latents)
+        if name in ("sample", "samples", "latents", "hidden_states", "noisy_sample"):
             kwargs[name] = make_latents(onload_device)
-        elif name in ("encoder_hidden_states", "text_embeddings", "context_embeddings"):
+
+        # 2. 文本嵌入输入 (Conditioning)
+        elif name in ("encoder_hidden_states", "text_embeddings", "context"):
             kwargs[name] = make_encoder_hidden_states(onload_device)
-        elif name in ("timestep", "timesteps", "time_step"):
+
+        # 3. 时间步 (Timesteps)
+        elif name in ("timestep", "timesteps", "time_step", "t"):
             kwargs[name] = make_timestep(onload_device)
+
+        # 4. 重点修复：Attention Mask
+        elif name == "attention_mask":
+            kwargs[name] = None 
+
+        elif name == "input_ids":
+            kwargs[name] = torch.randint(
+                0,
+                infer_vocab_size(),
+                (batch_size, infer_text_seq_len()),
+                device=onload_device,
+                dtype=torch.long,
+            )
+        
+        # 处理 SDXL / Video 等模型可能需要的额外参数
+        elif name == "added_cond_kwargs":
+             kwargs[name] = None
+             
+        # CogVideoX 中可能需要图像旋转位置编码
+        elif name == "image_rotary_emb":
+            kwargs[name] = None
+
         else:
-            kwargs[name] = None  # fallback
+            kwargs[name] = None
 
-    # ---------- ensure sample & encoder_hidden_states alignment ----------
-    # 对 UNet cross-attention 来说，seq_len = H*W
-    latent_shape = None
-    for name in ("latents", "sample", "hidden_states", "noisy_sample", "noise_sample"):
-        if (
-            name in kwargs
-            and isinstance(kwargs[name], torch.Tensor)
-            and kwargs[name].dim() == 4
-        ):
-            latent_shape = kwargs[name].shape
-            break
+    # -----------------------------
+    # cleanup None
+    # -----------------------------
+    # 移除所有为 None 的参数，让模型使用内部默认值
+    kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
-    if latent_shape is not None and "encoder_hidden_states" in kwargs:
-        b, c, h, w = latent_shape
-        spatial_tokens = h * w
-        hidden_dim = kwargs["encoder_hidden_states"].shape[-1]
-        # 重新生成 encoder_hidden_states，使长度等于 latent 的 H*W
-        kwargs["encoder_hidden_states"] = make_encoder_hidden_states(
-            onload_device, seq_len=spatial_tokens, hidden_dim=hidden_dim
-        )
-
-    if "input_ids" in arg_names:
-        kwargs["input_ids"] = torch.randint(
-            low=0,
-            high=infer_vocab_size(),
-            size=(batch_size, infer_text_seq_len()),
-            dtype=torch.long,
-            device=onload_device,
-        )
-    
-    if "attention_mask" in arg_names:
-        kwargs["attention_mask"] = torch.ones(
-            (batch_size, infer_text_seq_len()),
-            dtype=torch.long,
-            device=onload_device,
-        )
-
-    # ---------- final offload if requested ----------
+    # -----------------------------
+    # optional device offload
+    # -----------------------------
     if test_on_offload_device:
-        for k, v in list(kwargs.items()):
+        for k, v in kwargs.items():
             if isinstance(v, torch.Tensor):
                 kwargs[k] = v.to(offload_device)
-
-    for k, v in list(kwargs.items()):
-        if v is None:
-            kwargs.pop(k)
 
     return [], kwargs

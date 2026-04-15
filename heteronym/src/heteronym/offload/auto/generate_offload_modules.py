@@ -105,6 +105,7 @@ def generate_offload_modules(
         if len(sub_names) == 0:
             import warnings
             warnings.warn(f"Found no parameters valid for offloading in {name}")
+            offload_modules_configs.append(OffloadModulesConfig([], 1))
             continue
         module_dtype = example_modules[name].get_parameter(sub_names[0]).dtype
         bytes_per_numels = module_dtype.itemsize
