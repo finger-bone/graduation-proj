@@ -1,6 +1,6 @@
 [project]
 authors = [{name = "Zend", email = "ZendWang040302@outlook.com"}]
-dependencies = ["loguru>=0.7.3,<0.8", "tqdm>=4.67.1,<5", "fastapi>=0.121.0,<0.122", "sqlalchemy>=2.0.44,<3", "uvicorn>=0.38.0,<0.39", "transformers==4.57.1", "diffusers[torch]==0.37.1", "argon2-cffi>=25.1.0,<26", "python-dotenv>=1.2.1,<2", "tensordict>=0.1.2,<0.2", "gradio>=6.9.0,<7", "httpx[socks]>=0.28.1,<0.29", "accelerate>=1.13.0,<2", "pandas>=3.0.1,<4", "imageio[ffmpeg]==0.6.0"]
+dependencies = ["loguru>=0.7.3,<0.8", "tqdm>=4.67.1,<5", "fastapi>=0.121.0,<0.122", "sqlalchemy>=2.0.44,<3", "uvicorn>=0.38.0,<0.39", "transformers==4.57.1", "diffusers[torch]==0.37.1", "argon2-cffi>=25.1.0,<26", "python-dotenv>=1.2.1,<2", "tensordict>=0.1.2,<0.2", "gradio>=6.9.0,<7", "httpx[socks]>=0.28.1,<0.29", "accelerate>=1.13.0,<2", "pandas>=3.0.1,<4", "imageio[ffmpeg]==2.37.3"]
 name = "heteronym"
 requires-python = ">= 3.11"
 version = "0.1.0"
