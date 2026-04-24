@@ -128,11 +128,13 @@ def create_ui(
     if enable_offload:
         offload_conf = create_config(offload_config, model_info)
         from heteronym.offload.setup_config import setup_from_config
+        from heteronym.offload.auto import auto_setup_offload
 
         target_model = getattr(pipe, "unet", None) or getattr(pipe, "transformer", None)
 
         if target_model:
             setup_from_config(target_model, json.dumps(offload_conf), device)
+            auto_setup_offload(pipe.text_encoder, device)
 
             seen = set()
             for attr_name in dir(pipe):
@@ -143,6 +145,7 @@ def create_ui(
                     attr = getattr(pipe, attr_name)
                 except Exception:
                     continue
+                if attr_name == "text_encoder": continue
 
                 if id(attr) in seen:
                     continue
