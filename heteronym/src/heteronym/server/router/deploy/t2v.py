@@ -205,7 +205,10 @@ def create_ui(
                     frames = out.videos[0]
                 else:
                     frames = out[0]
-
+                del out
+                import gc
+                gc.collect()
+                
                 result_container["video"] = frames_to_video(frames, fps=fps)
 
             except Exception as e:
